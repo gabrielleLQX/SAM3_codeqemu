@@ -1,0 +1,73 @@
+/*
+ * defines wrmem related functions
+ *
+ *  Copyright (c) 2003 Fabrice Bellard
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, see <http://www.gnu.org/licenses/>.
+ */
+
+/**************************************************************************
+ * IO ports API
+ */
+
+#ifndef WRMEM_H
+#define WRMEM_H
+
+#include "qemu-common.h"
+#include "exec/memory.h"
+
+#define MAX_WRMEMS     (64 * 1024)
+#define WRMEMS_MASK    (MAX_WRMEMS - 1)
+
+/* These should really be in isa.h, but are here to make pc.h happy.  */
+typedef void (WrmemWriteFunc)(void *opaque, uint32_t address, uint32_t data);
+typedef uint32_t (WrmemReadFunc)(void *opaque, uint32_t address);
+typedef void (WrmemDestructor)(void *opaque);
+
+void writedbg_mem(MemoryRegion *mr, uint32_t addr, uint32_t val);
+uint32_t readdbg_mem(MemoryRegion *mr, uint32_t addr);
+
+int register_wrmem_read(pio_addr_t start, int length, int size,
+                         WrmemReadFunc *func, void *opaque);
+int register_wrmem_write(pio_addr_t start, int length, int size,
+                          WrmemWriteFunc *func, void *opaque);
+void isa_unassign_wrmem(pio_addr_t start, int length);
+bool isa_is_wrmem_assigned(pio_addr_t start);
+
+void wrmem_write(uint32_t addr, uint32_t val);
+uint32_t wrmem_read(uint32_t addr);
+
+struct MemoryRegion;
+struct MemoryRegionPortio;
+
+typedef struct PortioList {
+    const struct MemoryRegionPortio *ports;
+    struct MemoryRegion *address_space;
+    unsigned nr;
+    struct MemoryRegion **regions;
+    struct MemoryRegion **aliases;
+    void *opaque;
+    const char *name;
+} PortioList;
+
+void portio_list_init(PortioList *piolist,
+                      const struct MemoryRegionPortio *callbacks,
+                      void *opaque, const char *name);
+void portio_list_destroy(PortioList *piolist);
+void portio_list_add(PortioList *piolist,
+                     struct MemoryRegion *address_space,
+                     uint32_t addr);
+void portio_list_del(PortioList *piolist);
+
+#endif /* WRMEM_H */

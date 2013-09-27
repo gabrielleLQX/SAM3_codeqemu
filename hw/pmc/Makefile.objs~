@@ -1,0 +1,1 @@
+common-obj-$(CONFIG_pmc) += pmc_atmel.o
