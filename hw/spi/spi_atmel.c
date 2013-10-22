@@ -117,6 +117,7 @@ typedef struct {
   uint32_t	 ptcr; 	// PDC Transfer Control Register
   uint32_t	 ptsr; 	// PDC Transfer Status Register
   */
+  bool dbg_s;
     qemu_irq irq;
     SSIBus *ssi;
 } spi_state;
@@ -126,6 +127,7 @@ static const unsigned char spi_id[8] =
 
 static void spi_update(spi_state *s)
 {
+    fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
     if (s->tx_fifo_len == 0)
       s->sr |= SPI_TXBUFE;
     else
@@ -148,8 +150,10 @@ static void spi_update(spi_state *s)
     qemu_set_irq(s->irq, ((~(s->idr)) & s->ier & s->imr) != 0);
 }
 
+
 static void spi_transmit(spi_state *s, uint64_t value)
 {  
+    fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
     int i;
     int o;
     int val;
@@ -197,6 +201,7 @@ static void spi_transmit(spi_state *s, uint64_t value)
 }
 static uint16_t spi_receive(spi_state *s)
 {  
+  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
   uint16_t val;
   if (s->mr & SPI_LLB) {
     // Loopback mode.
@@ -222,24 +227,36 @@ static uint16_t spi_receive(spi_state *s)
 } 
 static void spi_xfer(spi_state *s,uint16_t value)
 {  
+  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
   s->sr &= ~SPI_TXEMPTY;
   s->sr &= ~SPI_TDRE;
   s->sr |= SPI_RDRF;
   s->rx_fifo[0] = value;
 }
+
+static void spi_dbgUpdate(void *opaque, hwaddr offset,
+                           unsigned size)
+{
+  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
+  spi_state *s = (spi_state *)opaque;
+  if(s->dbg_s){
+    s->dbg_s = 0;
+  }
+}
+
 static uint32_t spi_read(void *opaque, hwaddr offset,
                            unsigned size)
 {
     spi_state *s = (spi_state *)opaque;
     //int val;
-
+    fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
     if (offset >= 0xfe0 && offset < 0x1000) {
         return spi_id[(offset - 0xfe0) >> 2];
     }
     switch (offset) {
       
-    case 0x00: // CR 
-      return s->cr;
+      //case 0x00: // CR 
+      //return s->cr;
     case 0x04: // MR 
       return s->mr;
     case 0x08: // RDR 
@@ -295,6 +312,7 @@ static uint32_t spi_read(void *opaque, hwaddr offset,
 static uint32_t spi_read_dbg(void *opaque, hwaddr offset,
                            unsigned size)
 {
+  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
     spi_state *s = (spi_state *)opaque;
     //int val;
 
@@ -313,6 +331,10 @@ static uint32_t spi_read_dbg(void *opaque, hwaddr offset,
 	return s->tdr;
     case 0x10: // SR 
       return s->sr;
+    case 0x14: // IER
+      return s->ier; 
+    case 0x18: // IDR
+      return s->idr;  
     case 0x1c: // IMR 
       return s->imr;
     case 0x30: // CSR0 
@@ -337,6 +359,7 @@ static uint32_t spi_read_dbg(void *opaque, hwaddr offset,
 static void spi_write(void *opaque, hwaddr offset,
                         uint64_t value, unsigned size)
 {
+  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
     spi_state *s = (spi_state *)opaque;
 
     switch (offset) {
@@ -352,9 +375,10 @@ static void spi_write(void *opaque, hwaddr offset,
         }
         break;
     case 0x0c: // TDR 
-      s->tdr = value;
-      if((s->wpmr & 0x2) != 0x2)//if not in mode debug
-	spi_transmit(s,value);
+	s->tdr = value;
+      if((s->wpmr & 0x2) != 0x2)//tmp:(test)if not in mode debug
+	if((s->sr & SPI_SPIENS) != 0)
+	  spi_transmit(s,value);
 	/******************************
           Easy Mode when LLB is set
           and the write read is at the same speed
@@ -400,8 +424,62 @@ static void spi_write(void *opaque, hwaddr offset,
     }
 }
 
+static void spi_write_dbg(void *opaque, hwaddr offset,
+                        uint64_t value, unsigned size)
+{
+  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
+    spi_state *s = (spi_state *)opaque;
+    s->dbg_s = 1;
+    switch (offset) {
+    case 0x00: // CR
+        s->cr = value;
+	//spi_update(s);
+        break;
+    case 0x04: // MR
+        s->mr = value;
+        break;
+    case 0x08: // RDR 
+      s->rdr = value;
+      break;
+    case 0x0c: // TDR 
+      s->tdr = value;
+      break;
+    case 0x14: // IER 
+        s->ier = value;
+        //spi_update(s);
+        break;
+    case 0x18: // IDR 
+        s->idr = value;
+        //spi_update(s);
+        break;
+    case 0x1c: // IMR 
+        s->imr = value;
+    case 0x30: // CSR0 
+        s->csr[0] = value;
+        break;
+    case 0x34: // CSR1 
+        s->csr[1] = value;
+        break;
+    case 0x38: // CSR2 
+        s->csr[2] = value;
+        break;
+    case 0x3c: // CSR3 
+        s->csr[3] = value;
+        break;
+    case 0xE4: // WPMR 
+        s->wpmr = value;
+	//if((value & 0x2) == 0)//not in mode debug
+	  
+        break;
+    default:
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "spi_write: Bad offset %x\n", (int)offset);
+    }
+}
+
 static void spi_reset(spi_state *s)
 {
+  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
     s->rx_fifo_len = 0;
     s->tx_fifo_len = 0;
     s->imr = 0x7ff;
@@ -414,6 +492,7 @@ static const MemoryRegionOps spi_ops = {
     .read = spi_read,
     .read_dbg = spi_read_dbg,
     .write = spi_write,
+    .write_dbg = spi_write_dbg,
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
@@ -463,6 +542,7 @@ static const VMStateDescription vmstate_spi = {
 
 static int spi_init(SysBusDevice *dev)
 {
+  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
     DeviceState *device = DEVICE(dev);
     spi_state *s = FROM_SYSBUS(spi_state, dev);
 
@@ -477,6 +557,7 @@ static int spi_init(SysBusDevice *dev)
 
 static void spi_class_init(ObjectClass *klass, void *data)
 {
+  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
     SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
 
     sdc->init = spi_init;
@@ -491,6 +572,7 @@ static const TypeInfo spi_info = {
 
 static void spi_register_types(void)
 {
+  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
     type_register_static(&spi_info);
 }
 
