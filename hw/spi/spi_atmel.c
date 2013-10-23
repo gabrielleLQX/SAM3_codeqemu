@@ -127,7 +127,7 @@ static const unsigned char spi_id[8] =
 
 static void spi_update(spi_state *s)
 {
-    fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
+    fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     if (s->tx_fifo_len == 0)
       s->sr |= SPI_TXBUFE;
     else
@@ -153,7 +153,7 @@ static void spi_update(spi_state *s)
 
 static void spi_transmit(spi_state *s, uint64_t value)
 {  
-    fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
+    fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     int i;
     int o;
     int val;
@@ -162,7 +162,7 @@ static void spi_transmit(spi_state *s, uint64_t value)
       DPRINTF("TX %02x\n", (unsigned)value);
       s->tx_fifo[s->tx_fifo_head] = value;
       s->sr &= ~SPI_TXEMPTY;
-      s->sr &= ~SPI_TDRE;
+      //s->sr &= ~SPI_TDRE;
       s->tx_fifo_head = (s->tx_fifo_head + 1) & 7;
       s->tx_fifo_len++;	    
       spi_update(s);
@@ -196,12 +196,12 @@ static void spi_transmit(spi_state *s, uint64_t value)
     }
     s->rx_fifo_head = o;
     s->sr |= SPI_TXEMPTY;
-    s->sr |= SPI_TDRE;
+    //s->sr |= SPI_TDRE;
     spi_update(s);
 }
 static uint16_t spi_receive(spi_state *s)
 {  
-  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
+  fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
   uint16_t val;
   if (s->mr & SPI_LLB) {
     // Loopback mode.
@@ -237,7 +237,7 @@ static void spi_xfer(spi_state *s,uint16_t value)
 static void spi_dbgUpdate(void *opaque, hwaddr offset,
                            unsigned size)
 {
-  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
+  fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
   spi_state *s = (spi_state *)opaque;
   if(s->dbg_s){
     s->dbg_s = 0;
@@ -248,8 +248,8 @@ static uint32_t spi_read(void *opaque, hwaddr offset,
                            unsigned size)
 {
     spi_state *s = (spi_state *)opaque;
-    //int val;
-    fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
+    int val;
+    fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     if (offset >= 0xfe0 && offset < 0x1000) {
         return spi_id[(offset - 0xfe0) >> 2];
     }
@@ -260,11 +260,7 @@ static uint32_t spi_read(void *opaque, hwaddr offset,
     case 0x04: // MR 
       return s->mr;
     case 0x08: // RDR 
-      if((s->wpmr & 0x2) != 0){//mode debug     	  
-	return s->rdr;
-      }
-      else
-	return spi_receive(s);
+      return spi_receive(s);
       /******************************************
           Easy Mode when LLB is set
           and the write read is at the same speed
@@ -281,11 +277,10 @@ static uint32_t spi_read(void *opaque, hwaddr offset,
 	}
       */
     case 0x0c: //TDR
-      if((s->wpmr & 0x2) != 0){
-	return s->tdr;
-      }
-      else
-	return 0xffffffff;
+      s->sr |= SPI_TDRE;
+      val = s->tdr;
+      spi_transmit(s,val);
+      return val;      
     case 0x10: // SR 
       return s->sr;
     case 0x1c: // IMR 
@@ -312,7 +307,7 @@ static uint32_t spi_read(void *opaque, hwaddr offset,
 static uint32_t spi_read_dbg(void *opaque, hwaddr offset,
                            unsigned size)
 {
-  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
+  fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     spi_state *s = (spi_state *)opaque;
     //int val;
 
@@ -359,7 +354,7 @@ static uint32_t spi_read_dbg(void *opaque, hwaddr offset,
 static void spi_write(void *opaque, hwaddr offset,
                         uint64_t value, unsigned size)
 {
-  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
+  fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     spi_state *s = (spi_state *)opaque;
 
     switch (offset) {
@@ -375,23 +370,23 @@ static void spi_write(void *opaque, hwaddr offset,
         }
         break;
     case 0x0c: // TDR 
-	s->tdr = value;
-      if((s->wpmr & 0x2) != 0x2)//tmp:(test)if not in mode debug
-	if((s->sr & SPI_SPIENS) != 0)
-	  spi_transmit(s,value);
-	/******************************
+      s->sr &= ~SPI_TDRE;
+      s->tdr = value;
+      //if((s->sr & SPI_SPIENS) != 0)
+      //spi_transmit(s,value);
+      /******************************
           Easy Mode when LLB is set
           and the write read is at the same speed
-	 ******************************/
-	/*
-	  if((s->mr & SPI_LLB)==0)
-	  spi_transmit(s,value);
-	  else
-	  {
-	  s->tx_fifo[0] = value;
-	  spi_xfer(s,value);
-	  }
-	*/
+      ******************************/
+      /*
+	if((s->mr & SPI_LLB)==0)
+	spi_transmit(s,value);
+	else
+	{
+	s->tx_fifo[0] = value;
+	spi_xfer(s,value);
+	}
+      */
       break;
     case 0x14: // IER 
         s->ier = value;
@@ -427,7 +422,7 @@ static void spi_write(void *opaque, hwaddr offset,
 static void spi_write_dbg(void *opaque, hwaddr offset,
                         uint64_t value, unsigned size)
 {
-  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
+  fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     spi_state *s = (spi_state *)opaque;
     s->dbg_s = 1;
     switch (offset) {
@@ -479,7 +474,7 @@ static void spi_write_dbg(void *opaque, hwaddr offset,
 
 static void spi_reset(spi_state *s)
 {
-  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
+  fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     s->rx_fifo_len = 0;
     s->tx_fifo_len = 0;
     s->imr = 0x7ff;
@@ -542,7 +537,7 @@ static const VMStateDescription vmstate_spi = {
 
 static int spi_init(SysBusDevice *dev)
 {
-  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
+  fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     DeviceState *device = DEVICE(dev);
     spi_state *s = FROM_SYSBUS(spi_state, dev);
 
@@ -557,7 +552,7 @@ static int spi_init(SysBusDevice *dev)
 
 static void spi_class_init(ObjectClass *klass, void *data)
 {
-  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
+  fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     SysBusDeviceClass *sdc = SYS_BUS_DEVICE_CLASS(klass);
 
     sdc->init = spi_init;
@@ -572,7 +567,7 @@ static const TypeInfo spi_info = {
 
 static void spi_register_types(void)
 {
-  fprintf(stderr,"\rin function : %s \r\n",__FUNCTION__);
+  fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     type_register_static(&spi_info);
 }
 
