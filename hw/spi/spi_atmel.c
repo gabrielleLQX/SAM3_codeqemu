@@ -196,6 +196,7 @@ static void spi_transmit(spi_state *s, uint64_t value)
     }
     s->rx_fifo_head = o;
     s->sr |= SPI_TXEMPTY;
+    s->sr |= SPI_RDRF;
     //s->sr |= SPI_TDRE;
     spi_update(s);
 }
@@ -249,7 +250,7 @@ static uint32_t spi_read(void *opaque, hwaddr offset,
 {
     spi_state *s = (spi_state *)opaque;
     int val;
-    fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
+    //fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     if (offset >= 0xfe0 && offset < 0x1000) {
         return spi_id[(offset - 0xfe0) >> 2];
     }
@@ -354,7 +355,7 @@ static uint32_t spi_read_dbg(void *opaque, hwaddr offset,
 static void spi_write(void *opaque, hwaddr offset,
                         uint64_t value, unsigned size)
 {
-  fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
+  //fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     spi_state *s = (spi_state *)opaque;
 
     switch (offset) {
