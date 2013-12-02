@@ -313,6 +313,7 @@ address_space_translate_for_iotlb(AddressSpace *as, hwaddr addr, hwaddr *xlat,
 
 void cpu_exec_init_all(void)
 {
+  fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
 #if !defined(CONFIG_USER_ONLY)
     qemu_mutex_init(&ram_list.mutex);
     memory_map_init();
@@ -351,6 +352,7 @@ const VMStateDescription vmstate_cpu_common = {
 
 CPUState *qemu_get_cpu(int index)
 {
+  fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     CPUState *cpu = first_cpu;
 
     while (cpu) {
@@ -365,6 +367,7 @@ CPUState *qemu_get_cpu(int index)
 
 void qemu_for_each_cpu(void (*func)(CPUState *cpu, void *data), void *data)
 {
+  fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     CPUState *cpu;
 
     cpu = first_cpu;
@@ -376,6 +379,7 @@ void qemu_for_each_cpu(void (*func)(CPUState *cpu, void *data), void *data)
 
 void cpu_exec_init(CPUArchState *env)
 {
+  fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     CPUState *cpu = ENV_GET_CPU(env);
     CPUClass *cc = CPU_GET_CLASS(cpu);
     CPUState **pcpu;
@@ -1110,6 +1114,7 @@ static int memory_try_enable_merging(void *addr, size_t len)
 ram_addr_t qemu_ram_alloc_from_ptr(ram_addr_t size, void *host,
                                    MemoryRegion *mr)
 {
+  fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     RAMBlock *block, *new_block;
 
     size = TARGET_PAGE_ALIGN(size);
@@ -1186,6 +1191,7 @@ ram_addr_t qemu_ram_alloc(ram_addr_t size, MemoryRegion *mr)
 
 void qemu_ram_free_from_ptr(ram_addr_t addr)
 {
+  fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     RAMBlock *block;
 
     /* This assumes the iothread lock is taken here too.  */
@@ -1204,6 +1210,7 @@ void qemu_ram_free_from_ptr(ram_addr_t addr)
 
 void qemu_ram_free(ram_addr_t addr)
 {
+  fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     RAMBlock *block;
 
     /* This assumes the iothread lock is taken here too.  */

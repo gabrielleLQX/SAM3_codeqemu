@@ -70,6 +70,7 @@ static void sigfd_handler(void *opaque)
 
 static int qemu_signal_init(void)
 {
+    fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     int sigfd;
     sigset_t set;
 
@@ -127,6 +128,7 @@ static GArray *gpollfds;
 
 int qemu_init_main_loop(void)
 {
+    fprintf(stderr,"\rQEMU : %s \r\n",__FUNCTION__);
     int ret;
     GSource *src;
 
